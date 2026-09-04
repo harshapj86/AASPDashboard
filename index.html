@@ -125,8 +125,7 @@ a{color:var(--accent);}
   padding:12px 24px;
 }
 #topbar-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-#topbar .tb-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-faint);font-weight:600;}
-#topbar .tb-meta{font-size:11.5px;color:var(--text-dim);margin-top:2px;}
+#topbar .tb-meta{font-size:12.5px;color:var(--text-dim);}
 #topbar .tb-meta b{color:var(--text);font-weight:600;}
 #asof{font-size:11px;color:var(--text-faint);}
 .validation-pill{
@@ -144,44 +143,84 @@ a{color:var(--accent);}
 #breadcrumb .crumb{cursor:pointer;padding:3px 9px;border-radius:20px;background:var(--panel);border:1px solid var(--border);}
 #breadcrumb .crumb:hover{border-color:var(--accent);color:var(--accent);}
 #breadcrumb .sep{color:var(--text-faint);}
-#breadcrumb .clear{margin-left:auto;cursor:pointer;color:var(--bad);font-size:11px;}
+#breadcrumb .clear{margin-left:8px;cursor:pointer;color:var(--text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px;}
+#breadcrumb .clear:hover{color:var(--bad);}
 
 /* ---------- Filter bar ---------- */
 #filterbar{
-  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
-  padding:14px 24px;border-bottom:1px solid var(--border);
+  padding:14px 24px 10px 24px;border-bottom:1px solid var(--border);
   background:var(--panel);
 }
-.fgroup{display:flex;flex-direction:column;gap:3px;}
-.fgroup label{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-faint);font-weight:600;}
-.fgroup select, .fgroup input[type=text], .fgroup input[type=date]{
-  background:var(--panel);border:1px solid var(--border);color:var(--text);
-  padding:6.5px 10px;border-radius:8px;font-size:12.5px;min-width:118px;font-family:var(--font-body);
+.filter-row-main{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.filter-row-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);
 }
-.fgroup select:focus, .fgroup input:focus{outline:none;border-color:var(--accent);}
+.filter-row-actions .actions-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.fdivider{width:1px;align-self:stretch;background:var(--border);margin:2px 6px;}
+@media(max-width:900px){ .fdivider{display:none;} }
+
+.fchip{
+  display:flex;align-items:center;gap:7px;height:38px;padding:0 11px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.fchip:hover{border-color:#b9c0d4;}
+.fchip:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(51,85,238,.12);}
+.fchip-label{font-size:12px;color:var(--text-faint);white-space:nowrap;font-weight:500;}
+.fchip select{
+  appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  border:none;background:transparent;color:var(--text);
+  font-size:12.5px;font-weight:600;font-family:var(--font-body);
+  height:100%;cursor:pointer;min-width:0;
+  padding-right:16px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23697086' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right center;
+}
+:root[data-theme="dark"] .fchip select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2395a0ba' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.fchip select:focus{outline:none;}
+.fchip input[type=date]{
+  border:none;background:transparent;color:var(--text);font-size:12.5px;font-weight:600;
+  font-family:var(--font-body);padding:0;height:100%;cursor:pointer;min-width:96px;
+}
+.fchip input[type=date]:focus{outline:none;}
+.fchip input[type=date]::-webkit-calendar-picker-indicator{opacity:.45;cursor:pointer;}
+.fchip input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:.8;}
+
 .filter-count-badge{
-  align-self:flex-end;font-size:11px;font-weight:600;color:var(--accent);
-  background:#eef1ff;border:1px solid #dbe3ff;padding:6.5px 11px;border-radius:20px;margin-right:4px;white-space:nowrap;
+  height:38px;box-sizing:border-box;display:inline-flex;align-items:center;
+  font-size:11.5px;font-weight:600;color:var(--accent);
+  background:var(--panel-2);border:1px solid var(--border);padding:0 13px;border-radius:10px;white-space:nowrap;
 }
-.quick-filter-group{display:flex;gap:6px;align-self:flex-end;margin-right:6px;}
+.quick-filter-group{
+  display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;height:38px;box-sizing:border-box;
+}
 .quick-btn{
-  background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
-  padding:7px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+  background:transparent;border:none;color:var(--text-dim);
+  padding:0 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;
+  transition:background .15s ease, color .15s ease;
 }
-.quick-btn:hover{border-color:var(--accent);color:var(--accent);}
-.quick-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.quick-btn:hover{color:var(--text);}
+.quick-btn.active{background:var(--panel);color:var(--accent);box-shadow:0 1px 2px rgba(20,30,60,.08);}
 #resetFilters{
-  align-self:flex-end;background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
-  padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;
+  background:transparent;border:none;color:var(--text-faint);
+  height:38px;padding:0 10px;font-size:12px;cursor:pointer;font-weight:500;
 }
-#resetFilters:hover{border-color:var(--bad);color:var(--bad);}
+#resetFilters:hover{color:var(--bad);}
 .fspacer{flex:1;}
-#exportMenu{display:flex;gap:8px;align-self:flex-end;}
-.btn-export{
-  background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
-  padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:500;
+#exportMenu{
+  display:flex;align-items:center;height:38px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;
 }
-.btn-export:hover{border-color:var(--accent);color:var(--accent);}
+.btn-export{
+  background:transparent;border:none;border-right:1px solid var(--border);color:var(--text-dim);
+  height:100%;padding:0 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:500;
+  transition:background .15s ease, color .15s ease;
+}
+.btn-export:last-child{border-right:none;}
+.btn-export:hover{background:var(--panel-2);color:var(--accent);}
 
 /* ---------- Sidebar nav (built from #tabbar) ---------- */
 #tabbar{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1 1 auto;}
@@ -213,7 +252,8 @@ a{color:var(--accent);}
 .section-sub{font-size:11.5px;color:var(--text-faint);margin:-8px 0 12px 0;}
 
 /* ---------- KPI cards ---------- */
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;}
+.kpi-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px;}
+.kpi-grid .kpi{flex:1 1 190px;}
 .kpi{
   background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 17px;
   position:relative;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,60,.04);
@@ -386,19 +426,20 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 24p
   #hamburger{display:flex;}
   #topbar{padding:10px 14px;}
   #topbar-row{gap:10px;}
-  #topbar .tb-label{font-size:9px;}
-  #topbar .tb-meta{font-size:10.5px;}
+  #topbar .tb-meta{font-size:11.5px;}
   #asof{display:none;}
   #cmdk-hint{display:none;}
   #breadcrumb{padding:8px 14px 0 14px;}
   #filterbar{padding:12px 14px;gap:8px;}
-  .fgroup{flex:1 1 calc(50% - 8px);min-width:0;}
-  .fgroup select,.fgroup input[type=text],.fgroup input[type=date]{width:100%;min-width:0;padding:9px 10px;font-size:13.5px;}
-  #resetFilters,.btn-export{padding:9px 12px;font-size:12.5px;}
-  #exportMenu{flex-wrap:wrap;width:100%;}
+  .fchip{flex:1 1 calc(50% - 8px);min-width:0;height:42px;}
+  .fchip select,.fchip input[type=date]{width:100%;min-width:0;font-size:13.5px;}
+  .quick-filter-group{height:42px;}
+  #resetFilters,.btn-export{padding:0 12px;font-size:12.5px;}
+  #exportMenu{flex-wrap:wrap;width:100%;height:auto;}
   #main{padding:16px 14px;}
   .section-title{font-size:15.5px;margin:20px 0 10px 0;}
-  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .kpi-grid{gap:10px;}
+  .kpi-grid .kpi{flex:1 1 150px;}
   .kpi{padding:13px 14px;}
   .kpi .value{font-size:20px;}
   .panel{padding:14px 15px;}
@@ -406,8 +447,8 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 24p
   .hero-card{padding:20px 18px;}
 }
 @media(max-width:480px){
-  .fgroup{flex:1 1 100%;}
-  .kpi-grid{grid-template-columns:1fr 1fr;}
+  .fchip{flex:1 1 100%;}
+  .kpi-grid .kpi{flex:1 1 calc(50% - 5px);}
   #brand .brand-title{font-size:16px;}
 }
 
@@ -452,10 +493,7 @@ footer{text-align:center;color:var(--text-faint);font-size:11px;padding:30px 24p
       <div id="topbar-row">
         <div style="display:flex;align-items:center;gap:12px;">
           <div id="hamburger" onclick="toggleSidebar()">☰</div>
-          <div>
-            <div class="tb-label">Data Confidence</div>
-            <div class="tb-meta">Aptronix Service Dataset · <b id="tb-coverage"></b></div>
-          </div>
+          <div class="tb-meta" id="tb-coverage-line"></div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
           <span id="tb-validation" class="validation-pill"><span class="dot"></span><span id="tb-validation-text">Validated</span></span>
@@ -1167,8 +1205,10 @@ function buildFilterBar(){
     sel.appendChild(el('option',{value:'All'}, allLabel));
     options.forEach(o=>sel.appendChild(el('option',{value:o},o)));
     sel.value = value;
-    return el('div',{class:'fgroup'},[el('label',{},label), sel]);
+    return el('div',{class:'fchip'},[el('span',{class:'fchip-label'},label), sel]);
   };
+  const divider = ()=> el('div',{class:'fdivider'});
+  const mainRow = el('div',{class:'filter-row-main'});
 
   // Today / WTD / MTD — active-state is derived by comparing the current
   // date range against what each preset would produce right now, rather
@@ -1180,23 +1220,24 @@ function buildFilterBar(){
   const wtdStr = clampToDataRange(toDateStr(mostRecentMonday(now)));
   const mtdStr = clampToDataRange(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`);
   const quickActive = (from)=> state.fy==='All' && state.quarter==='All' && state.dateFrom===from && state.dateTo===todayStr;
-  bar.appendChild(el('div',{class:'quick-filter-group'},[
+  mainRow.appendChild(el('div',{class:'quick-filter-group'},[
     el('button',{class:'quick-btn'+(quickActive(todayStr)?' active':''), onclick:()=>applyQuickFilter('today')}, 'Today'),
     el('button',{class:'quick-btn'+(quickActive(wtdStr)?' active':''), onclick:()=>applyQuickFilter('wtd')}, 'WTD'),
     el('button',{class:'quick-btn'+(quickActive(mtdStr)?' active':''), onclick:()=>applyQuickFilter('mtd')}, 'MTD'),
   ]));
+  mainRow.appendChild(divider());
 
-  bar.appendChild(mkSelect('Financial Year', FYS, state.fy, v=>{
+  mainRow.appendChild(mkSelect('FY', FYS, state.fy, v=>{
     state.fy=v; state.quarter='All';
     if(v!=='All'){ const b=fyDateBounds(v); state.dateFrom=clampToDataRange(b.from); state.dateTo=clampToDataRange(b.to); }
     else { state.dateFrom=MIN_DATE; state.dateTo=MAX_DATE; }
     onFilterChange();
-  }, 'All Years'));
-  bar.appendChild(mkSelect('Quarter', ['Q1','Q2','Q3','Q4'], state.quarter, v=>{
+  }, 'All years'));
+  mainRow.appendChild(mkSelect('Quarter', ['Q1','Q2','Q3','Q4'], state.quarter, v=>{
     state.quarter=v;
     if(v!=='All' && state.fy!=='All'){ const b=quarterDateBounds(state.fy,v); state.dateFrom=clampToDataRange(b.from); state.dateTo=clampToDataRange(b.to); }
     onFilterChange();
-  }, 'All Quarters'));
+  }, 'All quarters'));
 
   // custom date range — exact-day precision, drives KPI cards; also sets month bounds for all breakdowns
   const fromDate = el('input',{type:'date', min:MIN_DATE, max:MAX_DATE, onchange:e=>{
@@ -1207,31 +1248,38 @@ function buildFilterBar(){
     state.dateTo = e.target.value || MAX_DATE; state.fy='All'; state.quarter='All'; onFilterChange();
   }});
   toDate.value = state.dateTo;
-  bar.appendChild(el('div',{class:'fgroup'},[el('label',{},'Custom From'), fromDate]));
-  bar.appendChild(el('div',{class:'fgroup'},[el('label',{},'Custom To'), toDate]));
+  mainRow.appendChild(el('div',{class:'fchip'},[el('span',{class:'fchip-label'},'From'), fromDate]));
+  mainRow.appendChild(el('div',{class:'fchip'},[el('span',{class:'fchip-label'},'To'), toDate]));
+  mainRow.appendChild(divider());
 
-  bar.appendChild(mkSelect('State', STATES, state.state, v=>{state.state=v; state.arm='All'; state.centre='All'; onFilterChange();}));
-  bar.appendChild(mkSelect('ARM', ARMS, state.arm, v=>{state.arm=v; state.centre='All'; onFilterChange();}));
+  mainRow.appendChild(mkSelect('State', STATES, state.state, v=>{state.state=v; state.arm='All'; state.centre='All'; onFilterChange();}));
+  mainRow.appendChild(mkSelect('ARM', ARMS, state.arm, v=>{state.arm=v; state.centre='All'; onFilterChange();}));
   const centreOptions = CENTRES.filter(c=>centreMatches(c.Centre) || true).map(c=>c.Centre).sort();
-  bar.appendChild(mkSelect('Centre', centreOptions, state.centre, v=>{state.centre=v; onFilterChange();}));
-  bar.appendChild(mkSelect('Business Unit', BUS, state.bu, v=>{state.bu=v; onFilterChange();}));
-  bar.appendChild(mkSelect('Location Type', LOC_TYPES, state.locType, v=>{state.locType=v; onFilterChange();}));
+  mainRow.appendChild(mkSelect('Centre', centreOptions, state.centre, v=>{state.centre=v; onFilterChange();}));
+  mainRow.appendChild(mkSelect('Business Unit', BUS, state.bu, v=>{state.bu=v; onFilterChange();}));
+  mainRow.appendChild(mkSelect('Location', LOC_TYPES, state.locType, v=>{state.locType=v; onFilterChange();}));
+  bar.appendChild(mainRow);
 
-  bar.appendChild(el('div',{class:'fspacer'}));
+  // Actions always live on their own dedicated row, hint text left / controls
+  // right — deterministic regardless of how many rows the filters above
+  // wrap to, rather than competing with them for space on whichever line
+  // happens to have room.
+  const actionsRow = el('div',{class:'filter-row-actions'});
+  actionsRow.appendChild(el('div',{style:'font-size:10.5px;color:var(--text-faint);'},
+    'KPI cards reflect the exact selected dates. Trend charts and breakdowns aggregate by full month.'));
+  const actionsRight = el('div',{class:'actions-right'});
   const activeCount = countActiveFilters();
   if(activeCount>0){
-    bar.appendChild(el('span',{class:'filter-count-badge'}, activeCount+' filter'+(activeCount>1?'s':'')+' active'));
+    actionsRight.appendChild(el('span',{class:'filter-count-badge'}, activeCount+' filter'+(activeCount>1?'s':'')+' active'));
   }
-  bar.appendChild(el('button',{id:'resetFilters', onclick:resetFilters}, 'Reset filters'));
-
+  actionsRight.appendChild(el('button',{id:'resetFilters', onclick:resetFilters}, 'Reset'));
   const exportWrap = el('div',{id:'exportMenu'});
-  exportWrap.appendChild(el('button',{class:'btn-export', onclick:()=>exportCurrentCSV()}, '⭳ Export CSV'));
-  exportWrap.appendChild(el('button',{class:'btn-export', onclick:()=>window.print()}, '⎙ Export PDF'));
-  exportWrap.appendChild(el('button',{class:'btn-export', id:'exportPptBtn', onclick:()=>exportCurrentPPT()}, '▤ Export PPT'));
-  bar.appendChild(exportWrap);
-
-  bar.appendChild(el('div',{style:'flex-basis:100%;font-size:10px;color:var(--text-faint);margin-top:2px;'},
-    'KPI cards reflect the exact selected dates. Trend charts and breakdowns aggregate by full month.'));
+  exportWrap.appendChild(el('button',{class:'btn-export', onclick:()=>exportCurrentCSV()}, '⭳ CSV'));
+  exportWrap.appendChild(el('button',{class:'btn-export', onclick:()=>window.print()}, '⎙ PDF'));
+  exportWrap.appendChild(el('button',{class:'btn-export', id:'exportPptBtn', onclick:()=>exportCurrentPPT()}, '▤ PPT'));
+  actionsRight.appendChild(exportWrap);
+  actionsRow.appendChild(actionsRight);
+  bar.appendChild(actionsRow);
 }
 
 function countActiveFilters(){
@@ -1268,7 +1316,6 @@ function buildBreadcrumb(){
   if(state.quarter!=='All') parts.push({label:state.quarter, clear:()=>{state.quarter='All';}});
   if(parts.length===0){ bc.style.display='none'; return; }
   bc.style.display='flex';
-  bc.appendChild(el('span',{style:'color:var(--text-faint);font-size:11px;'},'DRILL:'));
   parts.forEach((p,i)=>{
     bc.appendChild(el('span',{class:'crumb', onclick:()=>{p.clear(); onFilterChange();}}, p.label+' ✕'));
   });
@@ -2687,8 +2734,8 @@ function renderCentreExplorer(){
   cr.forEach(c=>picker.appendChild(el('option',{value:c.name}, c.name)));
   picker.value = explorerState.centre;
   v.appendChild(el('div',{class:'panel', style:'margin-bottom:16px;'},
-    el('div',{style:'display:flex;align-items:center;gap:10px;flex-wrap:wrap;'},[
-      el('label',{style:'font-size:11px;color:var(--text-faint);'},'Select Centre:'), picker
+    el('div',{class:'fchip', style:'display:inline-flex;'},[
+      el('span',{class:'fchip-label'},'Centre'), picker
     ])
   ));
 
@@ -2765,8 +2812,8 @@ function renderArmExplorer(){
   ar.forEach(a=>picker.appendChild(el('option',{value:a.key}, a.key)));
   picker.value = explorerState.arm;
   v.appendChild(el('div',{class:'panel', style:'margin-bottom:16px;'},
-    el('div',{style:'display:flex;align-items:center;gap:10px;flex-wrap:wrap;'},[
-      el('label',{style:'font-size:11px;color:var(--text-faint);'},'Select ARM:'), picker
+    el('div',{class:'fchip', style:'display:inline-flex;'},[
+      el('span',{class:'fchip-label'},'ARM'), picker
     ])
   ));
 
@@ -2989,6 +3036,18 @@ function renderLicenses(){
   const mks = [...byMonth.keys()].sort((a,b)=>a-b);
   let series = mks.map(mk=>({mk, label:monthLabel(mk), ...byMonth.get(mk), gpPct:safeDiv(byMonth.get(mk).gp,byMonth.get(mk).revenue)*100}));
   series = withYoY(withMoM(series));
+  // Unit-based growth (licenses sold), computed alongside the shared
+  // revenue-based mom/yoy above rather than replacing it globally — other
+  // tabs reuse withMoM/withYoY for revenue, so this stays local to
+  // Licenses, where the operational metric being driven is unit count,
+  // not revenue.
+  series = series.map(r=>{
+    const prev = series.find(s=>s.mk===prevMonthKey(r.mk));
+    const yearAgo = series.find(s=>s.mk===r.mk-100);
+    const momUnits = (prev && prev.txns>0) ? safeDiv(r.txns-prev.txns, prev.txns)*100 : null;
+    const yoyUnits = (yearAgo && yearAgo.txns>0) ? safeDiv(r.txns-yearAgo.txns, yearAgo.txns)*100 : null;
+    return {...r, momUnits, yoyUnits};
+  });
   const last = series[series.length-1];
 
   const licenseTargetTotal = getFilteredTarget(TARGET_LICENSES).reduce((s,r)=>s+r.value,0);
@@ -3001,8 +3060,8 @@ function renderLicenses(){
     kpiCard('Licenses Sold (units)', fmtNum(totals.txns)),
     kpiCard('Licenses Target (units)', licenseTargetTotal>0?fmtNum(licenseTargetTotal):'—'),
     kpiCard('License Achievement', licenseAchPct!==null? licenseAchPct.toFixed(0)+'%':'—', null, deltaDir((licenseAchPct||0)-100)),
-    kpiCard('Latest MoM Growth', last&&last.mom!==null?fmtPct(last.mom):'—', null, last?deltaDir(last.mom):'flat'),
-    kpiCard('Latest YoY Growth', last&&last.yoy!==null?fmtPct(last.yoy):'—', null, last?deltaDir(last.yoy):'flat'),
+    kpiCard('Latest MoM Growth (Units)', last&&last.momUnits!==null?fmtPct(last.momUnits):'—', null, last?deltaDir(last.momUnits):'flat'),
+    kpiCard('Latest YoY Growth (Units)', last&&last.yoyUnits!==null?fmtPct(last.yoyUnits):'—', null, last?deltaDir(last.yoyUnits):'flat'),
   ]));
 
   const trendPanel = panel('License Revenue Trend', null, el('div',{class:'chart-wrap', style:'height:280px;'}, el('canvas',{id:'licTrend'})));
@@ -3026,12 +3085,13 @@ function renderLicenses(){
     onRowClick: r=>{state.centre=r.name; onFilterChange();}
   })));
 
-  const growthTablePanel = panel('Monthly License Growth', null, dataTable({
+  const growthTablePanel = panel('Monthly License Growth', 'measured by units sold, not revenue', dataTable({
     columns:[
       {key:'label', label:'Month'},
-      {key:'revenue', label:'Revenue', render:r=>numCell(r.revenue)},
-      {key:'mom', label:'MoM %', render:r=>pctCell(r.mom)},
-      {key:'yoy', label:'YoY %', render:r=>pctCell(r.yoy)},
+      {key:'txns', label:'Licenses Sold (units)', render:r=>numCell(r.txns, fmtNum)},
+      {key:'revenue', label:'Revenue (ref)', render:r=>numCell(r.revenue)},
+      {key:'momUnits', label:'MoM % (Units)', render:r=>pctCell(r.momUnits)},
+      {key:'yoyUnits', label:'YoY % (Units)', render:r=>pctCell(r.yoyUnits)},
     ],
     rows: series
   }));
@@ -3478,7 +3538,8 @@ function renderAll(){
 
 function populateDataConfidenceBar(){
   const unmapped = CENTRES.filter(c=>c.State==='Unmapped').length;
-  document.getElementById('tb-coverage').textContent = `Through ${monthLabel(MAX_MK)} · Coverage ${CENTRES.length} centres`;
+  document.getElementById('tb-coverage-line').innerHTML =
+    `Data through <b>${monthLabel(MAX_MK)}</b> — ${CENTRES.length} centres tracked`;
   const pill = document.getElementById('tb-validation');
   const pillText = document.getElementById('tb-validation-text');
   if(unmapped>0){
