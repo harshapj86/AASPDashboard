@@ -34,6 +34,7 @@ WHAT IT PRODUCES (data.json)
       target_revenue:  [[MonthKey, Centre, TargetRevenue], ...],
       target_gp:       [[MonthKey, Centre, TargetGP], ...],
       target_csat:     [[MonthKey, Centre, TargetCSATPercent], ...],
+      target_licenses: [[MonthKey, Centre, TargetLicenseCount], ...],
     }
 
 KNOWN DATA-QUALITY CAVEAT (see README)
@@ -553,6 +554,7 @@ def build_master_data(xls):
         "target_revenue": melt_month_sheet(xls, "Revenue Target"),
         "target_gp": melt_month_sheet(xls, "GP Target"),
         "target_csat": melt_month_sheet(xls, "CSAT Target"),
+        "target_licenses": melt_month_sheet(xls, "License Target"),
     }
 
 

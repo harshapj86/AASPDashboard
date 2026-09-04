@@ -499,6 +499,7 @@ const CSAT = RAW.csat;                      // [mk,centre,value]
 const TARGET_REVENUE = RAW.target_revenue || []; // [mk,centre,value]
 const TARGET_GP = RAW.target_gp || [];
 const TARGET_CSAT = RAW.target_csat || [];
+const TARGET_LICENSES = RAW.target_licenses || []; // [mk,centre,count] — a unit count, not currency
 const GP_COVERED_MONTHS = new Set(RAW.gpCoveredMonths || []); // months whose GP includes SVC Part Incentive per the GP report
 
 const MONTH_MAP = {}; MONTHS.forEach(m=>MONTH_MAP[m.MonthKey]=m);
@@ -618,6 +619,19 @@ function getFilteredMonthRows(){
     if(!monthInRange(mk)) continue;
     if(!centreMatches(c)) continue;
     out.push({mk,centre:c,revenue:rev,gp,txns,meta:CENTRE_MAP[c]});
+  }
+  return out;
+}
+function getFilteredLicenseRows(){
+  // Deliberately ignores state.bu (a filter meant for the Business Units
+  // tab) — this always means Licenses specifically, so a BU filter set
+  // elsewhere can't accidentally hide license data here.
+  const out=[];
+  for(const [mk,c,bu,rev,gp,txns] of FACT_BU){
+    if(bu!=='Licenses') continue;
+    if(!monthInRange(mk)) continue;
+    if(!centreMatches(c)) continue;
+    out.push({mk,centre:c,revenue:rev,gp,txns});
   }
   return out;
 }
@@ -914,7 +928,7 @@ function getFilteredTarget(arr){
   }
   return out;
 }
-function hasAnyTargets(){ return TARGET_REVENUE.length>0 || TARGET_GP.length>0 || TARGET_CSAT.length>0; }
+function hasAnyTargets(){ return TARGET_REVENUE.length>0 || TARGET_GP.length>0 || TARGET_CSAT.length>0 || TARGET_LICENSES.length>0; }
 
 /* Exact-day-precision totals for the selected custom date range (used for
    headline KPI cards — precise even when the range doesn't align to full
@@ -2457,7 +2471,7 @@ function renderTargets(){
   if(!hasAnyTargets()){
     v.appendChild(el('div',{class:'insight-card neutral'},[
       el('div',{class:'ihead'},[el('span',{class:'icon'},'◉'), el('span',{class:'ititle'},'No targets loaded yet')]),
-      el('p',{}, 'Add "Revenue Target", "GP Target", and/or "CSAT Target" sheets to your master workbook (same Branch ID × Month layout as the template) and rebuild the dashboard — Target vs Achievement will appear here automatically.'),
+      el('p',{}, 'Add "Revenue Target", "GP Target", "CSAT Target", and/or "License Target" sheets to your master workbook (same Branch ID × Month layout as the template) and rebuild the dashboard — Target vs Achievement will appear here automatically.'),
     ]));
     currentExporter = null;
     return;
@@ -2468,10 +2482,14 @@ function renderTargets(){
   const revTargets = getFilteredTarget(TARGET_REVENUE);
   const gpTargets = getFilteredTarget(TARGET_GP);
   const csatTargets = getFilteredTarget(TARGET_CSAT);
+  const licenseTargets = getFilteredTarget(TARGET_LICENSES);
+  const licenseRows = getFilteredLicenseRows();
 
   const sumTarget = (arr)=> arr.reduce((s,r)=>s+r.value,0);
   const totalRevTarget = sumTarget(revTargets);
   const totalGpTarget = sumTarget(gpTargets);
+  const totalLicenseTarget = sumTarget(licenseTargets);
+  const totalLicensesSold = licenseRows.reduce((s,r)=>s+r.txns,0);
   const totals = getExactRangeTotals();
   const csatRows = getFilteredCSAT();
   const avgCsat = csatRows.length? csatRows.reduce((s,r)=>s+r.value,0)/csatRows.length : null;
@@ -2485,6 +2503,8 @@ function renderTargets(){
     kpiCard('Revenue Achievement', achPct(totals.revenue,totalRevTarget)!==null? achPct(totals.revenue,totalRevTarget).toFixed(0)+'%':'—', null, deltaDir((achPct(totals.revenue,totalRevTarget)||0)-100)),
     kpiCard('GP Achievement', achPct(totals.gp,totalGpTarget)!==null? achPct(totals.gp,totalGpTarget).toFixed(0)+'%':'—', null, deltaDir((achPct(totals.gp,totalGpTarget)||0)-100)),
     kpiCard('CSAT Actual vs Target', avgCsat!==null? avgCsat.toFixed(0)+'%'+(avgCsatTarget?' / '+avgCsatTarget.toFixed(0)+'%':'') : '—'),
+    kpiCard('Licenses Sold', fmtNum(totalLicensesSold)),
+    kpiCard('License Achievement', achPct(totalLicensesSold,totalLicenseTarget)!==null? achPct(totalLicensesSold,totalLicenseTarget).toFixed(0)+'%':'—', null, deltaDir((achPct(totalLicensesSold,totalLicenseTarget)||0)-100)),
   ]));
 
   // Monthly actual vs target trend (revenue)
@@ -2494,19 +2514,28 @@ function renderTargets(){
   const trendPanel = panel('Revenue: Actual vs Target', null, el('div',{class:'chart-wrap', style:'height:280px;'}, el('canvas',{id:'targetTrend'})));
 
   // Centre-level target vs achievement table
-  const centreTargetMap = {}; // centre -> {revActual, revTarget, gpActual, gpTarget}
+  const centreTargetMap = {}; // centre -> {revActual, revTarget, gpActual, gpTarget, licenseActual, licenseTarget}
+  const blankCentreRow = ()=>({revActual:0,revTarget:0,gpActual:0,gpTarget:0,licenseActual:0,licenseTarget:0});
   revTargets.forEach(r=>{
-    if(!centreTargetMap[r.centre]) centreTargetMap[r.centre]={revActual:0,revTarget:0,gpActual:0,gpTarget:0};
+    if(!centreTargetMap[r.centre]) centreTargetMap[r.centre]=blankCentreRow();
     centreTargetMap[r.centre].revTarget += r.value;
   });
   gpTargets.forEach(r=>{
-    if(!centreTargetMap[r.centre]) centreTargetMap[r.centre]={revActual:0,revTarget:0,gpActual:0,gpTarget:0};
+    if(!centreTargetMap[r.centre]) centreTargetMap[r.centre]=blankCentreRow();
     centreTargetMap[r.centre].gpTarget += r.value;
+  });
+  licenseTargets.forEach(r=>{
+    if(!centreTargetMap[r.centre]) centreTargetMap[r.centre]=blankCentreRow();
+    centreTargetMap[r.centre].licenseTarget += r.value;
   });
   actualRows.forEach(r=>{
     if(!centreTargetMap[r.centre]) return; // only show centres that have a target set
     centreTargetMap[r.centre].revActual += r.revenue;
     centreTargetMap[r.centre].gpActual += r.gp;
+  });
+  licenseRows.forEach(r=>{
+    if(!centreTargetMap[r.centre]) return; // only show centres that have a target set
+    centreTargetMap[r.centre].licenseActual += r.txns;
   });
 
   // Projected columns always reflect the current real-world month's
@@ -2542,11 +2571,12 @@ function renderTargets(){
     name, ...v,
     revAch: achPct(v.revActual, v.revTarget),
     gpAch: achPct(v.gpActual, v.gpTarget),
+    licenseAch: achPct(v.licenseActual, v.licenseTarget),
     ...projectionFor(name),
   })).sort((a,b)=>(b.revAch||0)-(a.revAch||0));
 
   const tableCaption = el('div',{style:'font-size:11.5px;color:var(--text-faint);margin-bottom:10px;'},
-    `Revenue Projected columns reflect ${mkToLabel(projCtx.mk)}'s run-rate so far (${projCtx.elapsedWD} of ${projCtx.totalWD} working days elapsed) regardless of the date range filtered above.`);
+    `Revenue Projected columns reflect ${mkToLabel(projCtx.mk)}'s run-rate so far (${projCtx.elapsedWD} of ${projCtx.totalWD} working days elapsed) regardless of the date range filtered above. License columns are unit counts, not revenue.`);
 
   const tablePanel = panel('Centre-Level Target vs Achievement', centreRows.length+' centres with targets set', el('div',{},[
     tableCaption,
@@ -2561,6 +2591,9 @@ function renderTargets(){
         {key:'gpActual', label:'GP Actual', render:r=>numCell(r.gpActual)},
         {key:'gpTarget', label:'GP Target', render:r=>numCell(r.gpTarget)},
         {key:'gpAch', label:'GP Achievement', render:r=>el('td',{class:'num'}, r.gpAch!==null? el('span',{class:'pill '+(r.gpAch>=100?'good':r.gpAch>=80?'warn':'bad')}, r.gpAch.toFixed(0)+'%') : '—')},
+        {key:'licenseTarget', label:'Licenses Target (units)', render:r=>el('td',{class:'num'}, r.licenseTarget>0?fmtNum(r.licenseTarget):'—')},
+        {key:'licenseActual', label:'Licenses Sold (units)', render:r=>el('td',{class:'num'}, fmtNum(r.licenseActual))},
+        {key:'licenseAch', label:'License Achievement', render:r=>el('td',{class:'num'}, r.licenseAch!==null? el('span',{class:'pill '+(r.licenseAch>=100?'good':r.licenseAch>=80?'warn':'bad')}, r.licenseAch.toFixed(0)+'%') : '—')},
       ],
       rows: centreRows,
       onRowClick: r=>{state.centre=r.name; onFilterChange();}
@@ -2958,11 +2991,16 @@ function renderLicenses(){
   series = withYoY(withMoM(series));
   const last = series[series.length-1];
 
+  const licenseTargetTotal = getFilteredTarget(TARGET_LICENSES).reduce((s,r)=>s+r.value,0);
+  const licenseAchPct = licenseTargetTotal>0 ? safeDiv(totals.txns, licenseTargetTotal)*100 : null;
+
   v.appendChild(el('div',{class:'kpi-grid'},[
     kpiCard('License Revenue', fmtINR(totals.revenue)),
     kpiCard('License GP', fmtINR(totals.gp)),
     kpiCard('License GP %', totals.gpPct.toFixed(1)+'%'),
-    kpiCard('License Transactions', fmtNum(totals.txns)),
+    kpiCard('Licenses Sold (units)', fmtNum(totals.txns)),
+    kpiCard('Licenses Target (units)', licenseTargetTotal>0?fmtNum(licenseTargetTotal):'—'),
+    kpiCard('License Achievement', licenseAchPct!==null? licenseAchPct.toFixed(0)+'%':'—', null, deltaDir((licenseAchPct||0)-100)),
     kpiCard('Latest MoM Growth', last&&last.mom!==null?fmtPct(last.mom):'—', null, last?deltaDir(last.mom):'flat'),
     kpiCard('Latest YoY Growth', last&&last.yoy!==null?fmtPct(last.yoy):'—', null, last?deltaDir(last.yoy):'flat'),
   ]));
@@ -2982,7 +3020,7 @@ function renderLicenses(){
       {key:'revenue', label:'Revenue', render:r=>numCell(r.revenue)},
       {key:'gp', label:'GP', render:r=>numCell(r.gp)},
       {key:'gpPct', label:'GP%', render:r=>el('td',{class:'num'}, r.gpPct.toFixed(1)+'%')},
-      {key:'txns', label:'Txns', render:r=>numCell(r.txns, fmtNum)},
+      {key:'txns', label:'Licenses Sold (units)', render:r=>numCell(r.txns, fmtNum)},
     ],
     rows: sorted,
     onRowClick: r=>{state.centre=r.name; onFilterChange();}
