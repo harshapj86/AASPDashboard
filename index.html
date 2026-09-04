@@ -163,6 +163,13 @@ a{color:var(--accent);}
   align-self:flex-end;font-size:11px;font-weight:600;color:var(--accent);
   background:#eef1ff;border:1px solid #dbe3ff;padding:6.5px 11px;border-radius:20px;margin-right:4px;white-space:nowrap;
 }
+.quick-filter-group{display:flex;gap:6px;align-self:flex-end;margin-right:6px;}
+.quick-btn{
+  background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
+  padding:7px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+}
+.quick-btn:hover{border-color:var(--accent);color:var(--accent);}
+.quick-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 #resetFilters{
   align-self:flex-end;background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
   padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500;
@@ -691,8 +698,7 @@ function mkToLabel(mk){
 }
 function nextMonthKey(mk){ const y=Math.floor(mk/100), m=mk%100; return m===12?(y+1)*100+1:y*100+(m+1); }
 function prevMonthKey(mk){ const y=Math.floor(mk/100), m=mk%100; return m===1?(y-1)*100+12:y*100+(m-1); }
-function daysInMonth(mk){ const y=Math.floor(mk/100), m=mk%100; return new Date(y,m,0).getDate(); }
-function workingDaysInMonth(mk){
+function daysInMonth(mk){ const y=Math.floor(mk/100), m=mk%100; return new Date(y,m,0).getDate(); }function workingDaysInMonth(mk){
   const y=Math.floor(mk/100), m=mk%100, total=daysInMonth(mk);
   let wd=0;
   for(let d=1; d<=total; d++){ if(new Date(y,m-1,d).getDay()!==0) wd++; }
@@ -703,6 +709,33 @@ function workingDaysElapsed(mk, uptoDay){
   let wd=0;
   for(let d=1; d<=uptoDay; d++){ if(new Date(y,m-1,d).getDay()!==0) wd++; }
   return wd;
+}
+function toDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function mostRecentMonday(d){
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = day===0 ? 6 : day-1; // days back to Monday
+  const monday = new Date(d);
+  monday.setDate(d.getDate()-diff);
+  return monday;
+}
+/* Today / WTD / MTD quick filters — set the custom date range to a
+   preset window ending today, same mechanism as picking dates by hand,
+   so every existing view (KPIs, tables, charts) picks it up automatically
+   with no separate code path. WTD starts Monday (centres are closed
+   Sundays, so the week's first working day is Monday), MTD starts the
+   1st of the current calendar month. Both use the REAL device date, not
+   whatever period is currently filtered elsewhere. */
+function applyQuickFilter(kind){
+  const now = new Date();
+  const todayStr = toDateStr(now);
+  let fromStr;
+  if(kind==='today') fromStr = todayStr;
+  else if(kind==='wtd') fromStr = toDateStr(mostRecentMonday(now));
+  else fromStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  state.fy='All'; state.quarter='All';
+  state.dateFrom = clampToDataRange(fromStr);
+  state.dateTo = clampToDataRange(todayStr);
+  onFilterChange();
 }
 /* Target lookups that ignore the user's date-range filter (a live "today"
    projection, or a suggestion for an upcoming month, needs to work
@@ -1122,6 +1155,23 @@ function buildFilterBar(){
     sel.value = value;
     return el('div',{class:'fgroup'},[el('label',{},label), sel]);
   };
+
+  // Today / WTD / MTD — active-state is derived by comparing the current
+  // date range against what each preset would produce right now, rather
+  // than tracked as separate state, so it self-corrects if the range gets
+  // changed some other way (FY select, custom dates, Reset) instead of
+  // silently staying highlighted when it no longer applies.
+  const now = new Date();
+  const todayStr = clampToDataRange(toDateStr(now));
+  const wtdStr = clampToDataRange(toDateStr(mostRecentMonday(now)));
+  const mtdStr = clampToDataRange(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`);
+  const quickActive = (from)=> state.fy==='All' && state.quarter==='All' && state.dateFrom===from && state.dateTo===todayStr;
+  bar.appendChild(el('div',{class:'quick-filter-group'},[
+    el('button',{class:'quick-btn'+(quickActive(todayStr)?' active':''), onclick:()=>applyQuickFilter('today')}, 'Today'),
+    el('button',{class:'quick-btn'+(quickActive(wtdStr)?' active':''), onclick:()=>applyQuickFilter('wtd')}, 'WTD'),
+    el('button',{class:'quick-btn'+(quickActive(mtdStr)?' active':''), onclick:()=>applyQuickFilter('mtd')}, 'MTD'),
+  ]));
+
   bar.appendChild(mkSelect('Financial Year', FYS, state.fy, v=>{
     state.fy=v; state.quarter='All';
     if(v!=='All'){ const b=fyDateBounds(v); state.dateFrom=clampToDataRange(b.from); state.dateTo=clampToDataRange(b.to); }
@@ -2458,25 +2508,64 @@ function renderTargets(){
     centreTargetMap[r.centre].revActual += r.revenue;
     centreTargetMap[r.centre].gpActual += r.gp;
   });
+
+  // Projected columns always reflect the current real-world month's
+  // run-rate for each centre — same working-day-aware math as the Live
+  // Projection card — regardless of whatever broader period the table
+  // above is filtered to. A single pass over FACT_DAY here, rather than
+  // one scan per centre, keeps this cheap even with many centres.
+  const projCtx = (()=>{
+    const now = new Date();
+    const y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
+    const mk = y*100+m;
+    const monthPrefix = `${y}-${String(m).padStart(2,'0')}`;
+    const todayStr = `${monthPrefix}-${String(d).padStart(2,'0')}`;
+    const totalWD = workingDaysInMonth(mk);
+    const elapsedWD = workingDaysElapsed(mk, d);
+    const byCentre = {};
+    for(const [ds,c,rev] of FACT_DAY){
+      if(!ds.startsWith(monthPrefix) || ds>todayStr) continue;
+      byCentre[c] = (byCentre[c]||0) + rev;
+    }
+    return {mk, totalWD, elapsedWD, byCentre};
+  })();
+  function projectionFor(centre){
+    const soFar = projCtx.byCentre[centre];
+    if(soFar===undefined || projCtx.elapsedWD===0) return {projected:null, projectedPct:null};
+    const projected = (soFar/projCtx.elapsedWD) * projCtx.totalWD;
+    const target = getTargetForMonthCentre(TARGET_REVENUE, projCtx.mk, centre);
+    const projectedPct = target>0 ? safeDiv(projected,target)*100 : null;
+    return {projected, projectedPct};
+  }
+
   const centreRows = Object.entries(centreTargetMap).map(([name,v])=>({
     name, ...v,
     revAch: achPct(v.revActual, v.revTarget),
     gpAch: achPct(v.gpActual, v.gpTarget),
+    ...projectionFor(name),
   })).sort((a,b)=>(b.revAch||0)-(a.revAch||0));
 
-  const tablePanel = panel('Centre-Level Target vs Achievement', centreRows.length+' centres with targets set', dataTable({
-    columns:[
-      {key:'name', label:'Centre'},
-      {key:'revActual', label:'Revenue Actual', render:r=>numCell(r.revActual)},
-      {key:'revTarget', label:'Revenue Target', render:r=>numCell(r.revTarget)},
-      {key:'revAch', label:'Rev Achievement', render:r=>el('td',{class:'num'}, r.revAch!==null? el('span',{class:'pill '+(r.revAch>=100?'good':r.revAch>=80?'warn':'bad')}, r.revAch.toFixed(0)+'%') : '—')},
-      {key:'gpActual', label:'GP Actual', render:r=>numCell(r.gpActual)},
-      {key:'gpTarget', label:'GP Target', render:r=>numCell(r.gpTarget)},
-      {key:'gpAch', label:'GP Achievement', render:r=>el('td',{class:'num'}, r.gpAch!==null? el('span',{class:'pill '+(r.gpAch>=100?'good':r.gpAch>=80?'warn':'bad')}, r.gpAch.toFixed(0)+'%') : '—')},
-    ],
-    rows: centreRows,
-    onRowClick: r=>{state.centre=r.name; onFilterChange();}
-  }));
+  const tableCaption = el('div',{style:'font-size:11.5px;color:var(--text-faint);margin-bottom:10px;'},
+    `Revenue Projected columns reflect ${mkToLabel(projCtx.mk)}'s run-rate so far (${projCtx.elapsedWD} of ${projCtx.totalWD} working days elapsed) regardless of the date range filtered above.`);
+
+  const tablePanel = panel('Centre-Level Target vs Achievement', centreRows.length+' centres with targets set', el('div',{},[
+    tableCaption,
+    dataTable({
+      columns:[
+        {key:'name', label:'Centre'},
+        {key:'revTarget', label:'Revenue Target', render:r=>numCell(r.revTarget)},
+        {key:'revActual', label:'Revenue Actual', render:r=>numCell(r.revActual)},
+        {key:'revAch', label:'Revenue Achievement %', render:r=>el('td',{class:'num'}, r.revAch!==null? el('span',{class:'pill '+(r.revAch>=100?'good':r.revAch>=80?'warn':'bad')}, r.revAch.toFixed(0)+'%') : '—')},
+        {key:'projected', label:'Revenue Projected', render:r=>numCell(r.projected)},
+        {key:'projectedPct', label:'Revenue Projected %', render:r=>el('td',{class:'num'}, r.projectedPct!==null? el('span',{class:'pill '+(r.projectedPct>=100?'good':r.projectedPct>=80?'warn':'bad')}, r.projectedPct.toFixed(0)+'%') : '—')},
+        {key:'gpActual', label:'GP Actual', render:r=>numCell(r.gpActual)},
+        {key:'gpTarget', label:'GP Target', render:r=>numCell(r.gpTarget)},
+        {key:'gpAch', label:'GP Achievement', render:r=>el('td',{class:'num'}, r.gpAch!==null? el('span',{class:'pill '+(r.gpAch>=100?'good':r.gpAch>=80?'warn':'bad')}, r.gpAch.toFixed(0)+'%') : '—')},
+      ],
+      rows: centreRows,
+      onRowClick: r=>{state.centre=r.name; onFilterChange();}
+    })
+  ]));
 
   v.appendChild(trendPanel);
   v.appendChild(tablePanel);
