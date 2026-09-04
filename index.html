@@ -750,6 +750,25 @@ function mkToLabel(mk){
 }
 function nextMonthKey(mk){ const y=Math.floor(mk/100), m=mk%100; return m===12?(y+1)*100+1:y*100+(m+1); }
 function prevMonthKey(mk){ const y=Math.floor(mk/100), m=mk%100; return m===1?(y-1)*100+12:y*100+(m-1); }
+/* ------------------------------------------------------------
+   "Is this month still in progress" — the single source of truth
+   used everywhere a MoM/QoQ/YoY comparison, a ranking input, or a
+   forecast could otherwise be corrupted by comparing a partial month
+   (e.g. 4 days of September) against a full prior month. Always based
+   on the real device date, matching the Live Projection card's
+   convention, not whatever period happens to be filtered on screen.
+   ------------------------------------------------------------ */
+function isCurrentRealMonth(mk){
+  const now = new Date();
+  return mk === now.getFullYear()*100 + (now.getMonth()+1);
+}
+function completeMonthsOnly(series){
+  return series.filter(r=>!isCurrentRealMonth(r.mk));
+}
+function lastCompleteRow(series){
+  for(let i=series.length-1;i>=0;i--){ if(!isCurrentRealMonth(series[i].mk)) return series[i]; }
+  return null;
+}
 function daysInMonth(mk){ const y=Math.floor(mk/100), m=mk%100; return new Date(y,m,0).getDate(); }function workingDaysInMonth(mk){
   const y=Math.floor(mk/100), m=mk%100, total=daysInMonth(mk);
   let wd=0;
@@ -1038,7 +1057,12 @@ function monthlySeries(){
 function withMoM(series){
   return series.map((r,i)=>{
     const prev = series[i-1];
-    const mom = prev? safeDiv(r.revenue-prev.revenue, prev.revenue)*100 : null;
+    // A partial in-progress month has no fair comparison to a full prior
+    // month — 4 days of September vs all of August isn't a -84% decline,
+    // it's an apples-to-oranges number. Leave it null rather than show
+    // something misleading; the Live Projection card is the right place
+    // to see how the in-progress month is pacing.
+    const mom = (prev && !isCurrentRealMonth(r.mk)) ? safeDiv(r.revenue-prev.revenue, prev.revenue)*100 : null;
     return {...r, mom};
   });
 }
@@ -1047,7 +1071,7 @@ function withYoY(series){
   return series.map(r=>{
     const py = r.mk-100;
     const prev = byMk[py];
-    const yoy = prev? safeDiv(r.revenue-prev.revenue, prev.revenue)*100 : null;
+    const yoy = (prev && !isCurrentRealMonth(r.mk)) ? safeDiv(r.revenue-prev.revenue, prev.revenue)*100 : null;
     return {...r, yoy};
   });
 }
@@ -1797,13 +1821,21 @@ function kpiGrowthContext(){
     return {...r, qoq: prev? safeDiv(r.revenue-prev.revenue, prev.revenue)*100 : null,
                   gpQoq: prev? safeDiv(r.gp-prev.gp, prev.gp)*100 : null};
   });
-  const last = series[series.length-1];
-  const lastQ = q[q.length-1];
+  // "last" means the last COMPLETE month — an in-progress month (partial
+  // data, e.g. 4 days of the current month) isn't a fair MoM/YoY/QoQ
+  // comparison point. Same reasoning applied to whichever quarter the
+  // in-progress month falls in.
+  const last = lastCompleteRow(series);
+  const now = new Date();
+  const curRealMk = now.getFullYear()*100 + (now.getMonth()+1);
+  const curRealFYQ = MONTH_MAP[curRealMk]?.FYQ;
+  let lastQ = q[q.length-1];
+  if(lastQ && curRealFYQ && lastQ.label===curRealFYQ && q.length>1) lastQ = q[q.length-2];
   const spark = series.slice(-6).map(s=>s.revenue);
   const sparkGP = series.slice(-6).map(s=>s.gp);
   return {
     revMoM: last?last.mom:null, revYoY: last?last.yoy:null, revQoQ: lastQ?lastQ.qoq:null,
-    gpMoM: (()=>{ if(series.length<2) return null; const p=series[series.length-2]; return safeDiv(last.gp-p.gp,p.gp)*100; })(),
+    gpMoM: (()=>{ if(!last) return null; const idx=series.indexOf(last); if(idx<1) return null; const p=series[idx-1]; return p? safeDiv(last.gp-p.gp,p.gp)*100 : null; })(),
     gpQoQ: lastQ?lastQ.gpQoq:null,
     gpYoY: (()=>{ if(!last) return null; const byMk={}; series.forEach(r=>byMk[r.mk]=r); const p=byMk[last.mk-100]; return p? safeDiv(last.gp-p.gp,p.gp)*100 : null; })(),
     spark, sparkGP,
@@ -1841,8 +1873,10 @@ function buildExecutiveAlerts(){
   const lowGP = cr.filter(c=>c.revenue>100000 && c.gpPct<15);
   if(lowGP.length) alerts.push({level:'bad', text:`${lowGP.length} centre${lowGP.length>1?'s':''} running below 15% GP margin: ${lowGP.slice(0,4).map(c=>c.name).join(', ')}${lowGP.length>4?'…':''}.`});
 
-  // top growing / declining centres (last two available months, network-wide)
-  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b);
+  // top growing / declining centres (last two available COMPLETE months,
+  // network-wide) — an in-progress month would flag centres as
+  // dramatically "declining" purely because only a few days have posted.
+  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b).filter(mk=>!isCurrentRealMonth(mk));
   if(allMk.length>=2){
     const mkLast=allMk[allMk.length-1], mkPrev=allMk[allMk.length-2];
     const lastMap={}, prevMap={};
@@ -1913,7 +1947,12 @@ function minMaxNorm(values, v){
 }
 function centreGrowthMap(metricIndex){
   // metricIndex: 2=revenue, 3=gp in FACT_MONTH rows [mk,centre,revenue,gp,txns]
-  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b);
+  // Uses the last COMPLETE month vs the one before it — comparing an
+  // in-progress month's partial total against a full prior month would
+  // corrupt this growth figure, and it directly feeds 50% of the
+  // Performance Score weighting below, so getting this right matters
+  // more here than almost anywhere else in the app.
+  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b).filter(mk=>!isCurrentRealMonth(mk));
   const out = {};
   if(allMk.length<2) return out;
   const mkLast=allMk[allMk.length-1], mkPrev=allMk[allMk.length-2];
@@ -1968,6 +2007,9 @@ function computePerformanceScores(){
    Simple Forecast — linear trend extrapolation (no external deps)
    ================================================================ */
 function linearForecast(series, periodsAhead){
+  // series must already exclude any in-progress/incomplete month — see
+  // completeMonthsOnly() — regressing on a partial month's total would
+  // bias the fitted trend line downward.
   const n = series.length;
   if(n<3) return [];
   const xs = series.map((_,i)=>i);
@@ -1980,17 +2022,22 @@ function linearForecast(series, periodsAhead){
   // residual std-dev for a rough confidence band
   const resid = ys.map((y,i)=>y-(slope*xs[i]+intercept));
   const rmse = Math.sqrt(resid.reduce((s,r)=>s+r*r,0)/n);
+  const lastCompleteMk = series[series.length-1].mk;
+  // "Next month" means the first month with no data at all yet — if a
+  // month is already in progress (has partial actuals), it's not being
+  // forecast here, it already has a live run-rate projection elsewhere.
+  const now = new Date();
+  const curRealMk = now.getFullYear()*100 + (now.getMonth()+1);
+  let forecastStartMk = nextMonthKey(lastCompleteMk);
+  while(forecastStartMk<=curRealMk) forecastStartMk = nextMonthKey(forecastStartMk);
+  const monthDiff = (a,b)=> (Math.floor(b/100)-Math.floor(a/100))*12 + (b%100-a%100);
   const out = [];
-  const lastMk = series[series.length-1].mk;
-  for(let p=1;p<=periodsAhead;p++){
-    const x = n-1+p;
+  let mk = forecastStartMk;
+  for(let p=0;p<periodsAhead;p++){
+    const x = (n-1) + monthDiff(lastCompleteMk, mk);
     const yhat = slope*x+intercept;
-    let mk = lastMk, mm = MONTH_MAP[lastMk].Mon || null;
-    // advance mk by p months
-    let yy = Math.floor(lastMk/100), mo = lastMk%100;
-    mo += p; while(mo>12){mo-=12; yy+=1;}
-    const fmk = yy*100+mo;
-    out.push({mk:fmk, label:monthLabelSynthetic(fmk), forecast:Math.max(0,yhat), lo:Math.max(0,yhat-1.28*rmse), hi:yhat+1.28*rmse});
+    out.push({mk, label:monthLabelSynthetic(mk), forecast:Math.max(0,yhat), lo:Math.max(0,yhat-1.28*rmse), hi:yhat+1.28*rmse});
+    mk = nextMonthKey(mk);
   }
   return out;
 }
@@ -3044,11 +3091,12 @@ function renderLicenses(){
   series = series.map(r=>{
     const prev = series.find(s=>s.mk===prevMonthKey(r.mk));
     const yearAgo = series.find(s=>s.mk===r.mk-100);
-    const momUnits = (prev && prev.txns>0) ? safeDiv(r.txns-prev.txns, prev.txns)*100 : null;
-    const yoyUnits = (yearAgo && yearAgo.txns>0) ? safeDiv(r.txns-yearAgo.txns, yearAgo.txns)*100 : null;
+    const momUnits = (prev && prev.txns>0 && !isCurrentRealMonth(r.mk)) ? safeDiv(r.txns-prev.txns, prev.txns)*100 : null;
+    const yoyUnits = (yearAgo && yearAgo.txns>0 && !isCurrentRealMonth(r.mk)) ? safeDiv(r.txns-yearAgo.txns, yearAgo.txns)*100 : null;
     return {...r, momUnits, yoyUnits};
   });
-  const last = series[series.length-1];
+  const lastCompleteLic = [...series].reverse().find(r=>!isCurrentRealMonth(r.mk)) || null;
+  const last = lastCompleteLic;
 
   const licenseTargetTotal = getFilteredTarget(TARGET_LICENSES).reduce((s,r)=>s+r.value,0);
   const licenseAchPct = licenseTargetTotal>0 ? safeDiv(totals.txns, licenseTargetTotal)*100 : null;
@@ -3125,9 +3173,15 @@ function renderGrowth(){
     return {...r, qoq};
   });
 
-  const lastMoM = series.length? series[series.length-1].mom : null;
-  const lastYoY = series.length? series[series.length-1].yoy : null;
-  const lastQoQ = q.length? q[q.length-1].qoq : null;
+  const lastComplete = lastCompleteRow(series);
+  const lastMoM = lastComplete? lastComplete.mom : null;
+  const lastYoY = lastComplete? lastComplete.yoy : null;
+  const now = new Date();
+  const curRealMk = now.getFullYear()*100 + (now.getMonth()+1);
+  const curRealFYQ = MONTH_MAP[curRealMk]?.FYQ;
+  let lastQObj = q[q.length-1];
+  if(lastQObj && curRealFYQ && lastQObj.label===curRealFYQ && q.length>1) lastQObj = q[q.length-2];
+  const lastQoQ = lastQObj? lastQObj.qoq : null;
 
   v.appendChild(el('div',{class:'kpi-grid'},[
     kpiCard('Latest MoM Growth', lastMoM!==null?fmtPct(lastMoM):'—', null, deltaDir(lastMoM)),
@@ -3160,8 +3214,10 @@ function renderGrowth(){
   }));
   v.appendChild(tablePanel);
 
-  // Simple forecast — linear trend extrapolation, next 3 months
-  const fc = linearForecast(series, 3);
+  // Simple forecast — linear trend extrapolation, next 3 months. Fitted
+  // only on complete months (see completeMonthsOnly) so an in-progress
+  // month's partial total can't drag the trend line down.
+  const fc = linearForecast(completeMonthsOnly(series), 3);
   if(fc.length){
     const fcPanel = panel('Revenue Forecast (Next 3 Months)', 'Linear trend, ~80% band', el('div',{class:'chart-wrap', style:'height:260px;'}, el('canvas',{id:'forecastChart'})));
     v.appendChild(fcPanel);
@@ -3373,15 +3429,19 @@ function buildInsights(){
   const cr = centreRanking();
   const sr = stateRanking();
 
-  // 1. Growth / decline headline
-  if(series.length>=2){
-    const last = series[series.length-1];
+  // 1. Growth / decline headline — based on the last COMPLETE month; an
+  // in-progress month's partial total isn't a fair MoM comparison and
+  // would otherwise produce a misleading "declined 84%" style headline.
+  const last = lastCompleteRow(series);
+  const lastIdx = last ? series.indexOf(last) : -1;
+  if(last && lastIdx>=1){
+    const prevRow = series[lastIdx-1];
     const dir = (last.mom||0)>=0 ? 'grew' : 'declined';
     insights.push({
       type: (last.mom||0)>=0?'good':'warn',
       icon: (last.mom||0)>=0?'▲':'▼',
       title: `Revenue ${dir} ${Math.abs(last.mom||0).toFixed(1)}% month-on-month`,
-      body: `${last.label} closed at ${fmtINR(last.revenue)} in revenue with ${fmtINR(last.gp)} gross profit (${last.gpPct.toFixed(1)}% GP), versus ${fmtINR(series[series.length-2].revenue)} the prior month.`,
+      body: `${last.label} closed at ${fmtINR(last.revenue)} in revenue with ${fmtINR(last.gp)} gross profit (${last.gpPct.toFixed(1)}% GP), versus ${fmtINR(prevRow.revenue)} the prior month.`,
       action: (last.mom||0)<0
         ? `Review the centres driving the decline below and confirm whether it is seasonal, one-off, or a sustained trend before the next review cycle.`
         : `Sustain momentum by reallocating high-performing playbooks (schemes, upsell scripts) from top centres to mid-tier ones.`
@@ -3468,8 +3528,11 @@ function last_yoy_insight(series){
 }
 
 function detectOutlierCentres(){
-  // last two available months, unfiltered by month-range so it always has data, but respects entity filters
-  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b);
+  // last two available COMPLETE months, unfiltered by month-range so it
+  // always has data, but respects entity filters. Excludes any
+  // in-progress month — a partial-month "outlier" would really just be
+  // an artifact of a few days' data, not a real statistical outlier.
+  const allMk = [...new Set(FACT_MONTH.map(r=>r[0]))].sort((a,b)=>a-b).filter(mk=>!isCurrentRealMonth(mk));
   if(allMk.length<2) return null;
   const mkLast = allMk[allMk.length-1], mkPrev = allMk[allMk.length-2];
   const lastMap = {}, prevMap = {};
